@@ -1,4 +1,5 @@
 import streamlit as st
+!pip install tensorflow
 import tensorflow as tf
 import cv2
 import numpy as np
