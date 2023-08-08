@@ -1,75 +1,60 @@
 import streamlit as st
-import tensorflow as tf
 import cv2
 import numpy as np
-from PIL import Image
+from tensorflow.keras.models import load_model
 import os
-import time
 
-# Load the pre-trained model
-model_path = os.path.join(os.path.dirname(__file__), 'models', 'imageclassifier.h5')
-model = tf.keras.models.load_model(model_path)
+# Load the model
+model_path = os.path.join('models', 'imageclassifier.h5')
+model = load_model(model_path)
 
-# Define the classes
-classes = {0: 'Happy', 1: 'Sad'}
+def predict(image):
+    # Preprocess the image
+    resize = cv2.resize(image, (256, 256))
+    input_image = np.expand_dims(resize / 255.0, 0)
 
-# Emojis
-emoji_happy = "😊"
-emoji_sad = "😢"
+    # Get the prediction
+    prediction = model.predict(input_image)[0][0]
 
-# Function to preprocess the uploaded image
-def preprocess_image(image):
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    image = tf.image.resize(image, (256, 256))
-    image = np.expand_dims(image / 255.0, axis=0)
-    return image
+    # Define the classes
+    classes = ['Happy', 'Sad']
+
+    # Determine the class based on the prediction
+    predicted_class = classes[int(np.round(prediction))]
+    confidence = float(prediction)
+
+    return predicted_class, confidence
 
 def main():
-    st.title('Image Classifier - Happy or Sad')
+    st.set_page_config(layout="wide")  # Set wide layout to fit content in one page
+    st.title("Image Classifier")
+    st.write("A Deep CNN Image Classifier is a powerful computer program that can look at pictures and identify what's in them. It uses a specialized network of interconnected layers to learn and recognize different features in images, like shapes and patterns. This technology has been really successful in tasks like telling apart different animals or objects in photos.")
 
     # Create a layout with two columns
-    col1, col2 = st.columns([2, 1])  # Ratio: 2/3 for input column, 1/3 for output column
+    col1, col2 = st.columns([1, 3])  # Reverse the order of columns
 
-    # Upload image in the left column
+    # Column 1 for emoji and confidence
     with col1:
-        uploaded_file = st.file_uploader("Upload an image, and the model will predict whether it's happy or sad!",
-                                         type=["jpg", "jpeg", "png"], key="fileUploader")
+        uploaded_image = st.sidebar.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
+        if uploaded_image is not None:
+            image = cv2.imdecode(np.frombuffer(uploaded_image.read(), np.uint8), cv2.IMREAD_COLOR)
 
-        if uploaded_file is not None:
-            image = Image.open(uploaded_file)
-            st.image(image, caption='Uploaded Image', use_column_width=True)
+            predicted_class, confidence = predict(image)
 
-    if uploaded_file is not None:
-        # Preprocess the uploaded image
-        image_np = np.array(image)
-        resized_image = preprocess_image(image_np)
+            emoji_size = 80  # Adjust the emoji size
+            if predicted_class == 'Happy':
+                st.markdown(f'<p style="font-size: {emoji_size}px;">Emoji: 😀</p>', unsafe_allow_html=True)  # Happy emoji
+            else:
+                st.markdown(f'<p style="font-size: {emoji_size}px;">Emoji: 😢</p>', unsafe_allow_html=True)  # Sad emoji
 
-        # Display clean black background with output text and emojis in the right column
-        with col2:
-            # Set CSS styling to position the processing text at the top right corner
-            st.markdown("<style>div.stButton > button:first-child {float: right;}</style>", unsafe_allow_html=True)
-            st.info("Processing...")
+            st.write(f"Confidence: {confidence:.2f}")
 
-        # Introduce a delay to create suspense (you can adjust the delay time as per your preference)
-        time.sleep(4)
+    # Column 2 for uploaded image and output
+    with col2:
+        if uploaded_image is not None:
+            st.image(image, channels="BGR", caption="Uploaded Image", width=300)  # Adjust the width here
 
-        # Make prediction
-        prediction = model.predict(resized_image)
+            st.write(f"Predicted class: {predicted_class}")
 
-        # Get the predicted class
-        predicted_class = classes[int(np.round(prediction[0][0]))]
-
-        # Display clean black background with output text and emojis in the right column
-        with col2:
-            st.markdown("<div style='background-color: black; padding: 20px; text-align: center;'>"
-                        f"<h1 style='color: white; font-size: 40px;'>Prediction: {predicted_class}</h1>"
-                        "<br>"
-                        f"<p style='font-size: 80px;'>{emoji_happy if predicted_class == 'Happy' else emoji_sad}</p>"
-                        "</div>", unsafe_allow_html=True)
-
-            # Small text at bottom right corner
-            st.markdown("<div style='position: fixed; bottom: 10px; right: 10px; color: gray;'>"
-                        "by JALLA LABS PRIVATE LIMITED</div>", unsafe_allow_html=True)
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
